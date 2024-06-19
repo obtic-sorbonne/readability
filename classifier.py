@@ -10,6 +10,12 @@ from imblearn.over_sampling import SMOTE
 import re
 from sklearn.feature_extraction.text import CountVectorizer
 from scipy.sparse import hstack
+# app.py
+#!pip install flask gradio joblib pandas scikit-learn imblearn
+import pandas as pd
+import statistics
+import gradio as gr
+from flask import Flask, request, jsonify
 
 
 lexique_path = '/Lexique383.tsv'
@@ -156,5 +162,110 @@ texte1 = "Bonjour comment vas tu?"
 
 niveau_pred = predict_cefr_level(texte1)
 print(f'Le niveau CECRL prédit pour le texte est: {niveau_pred}')
+
+
+# app.py
+#!pip install flask gradio joblib pandas scikit-learn imblearn
+import joblib
+import pandas as pd
+import numpy as np
+import statistics
+import gradio as gr
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+# Charger les fichiers de modèle
+model = joblib.load('random_forest_cefr_model.pkl')
+vectorizer = joblib.load('tfidf_vectorizer.pkl')
+get_text_features = joblib.load('get_text_features.pkl')
+
+lexique_path = '/Lexique383.tsv'
+lexique = pd.read_csv(lexique_path, delimiter='\t')
+
+
+# Fonctions auxiliaires
+def count_syllables(word):
+    voyelles = "aeiouyAEIOUY"
+    n = len(word)
+    if all(char in voyelles for char in word):
+        return 1
+
+    nb_syllabes = 0
+    precedent_voyelle = False
+    for i, char in enumerate(word):
+        if char in voyelles:
+            if i == 0 or not precedent_voyelle:
+                nb_syllabes += 1
+            precedent_voyelle = True
+        else:
+            precedent_voyelle = False
+    return nb_syllabes
+
+def get_text_features(text, lexique_dict):
+    words = text.split()
+    num_words = len(words)
+    num_syllables = sum(count_syllables(word) for word in words)
+    avg_word_length = sum(len(word) for word in words) / num_words if num_words > 0 else 0
+    avg_syllables_per_word = num_syllables / num_words if num_words > 0 else 0
+
+    freqs = [lexique_dict[word]['freqlemlivres'] if word in lexique_dict else 0 for word in words]
+    avg_freq = sum(freqs) / num_words if num_words > 0 else 0
+    if len(freqs) < 2:
+        return avg_word_length, avg_syllables_per_word, avg_freq if freqs else 0, 0, 0, 0, 0
+    else:
+        quantiles = statistics.quantiles(freqs, n=5)
+        return avg_word_length, avg_syllables_per_word, avg_freq, *quantiles
+
+    return avg_word_length, avg_syllables_per_word, avg_freq, quantiles[0], quantiles[1], quantiles[2], quantiles[3]
+
+# Fonction pour transformer les caractéristiques du texte
+def transform_text_features(texts, vectorizer, get_text_features, lexique_dict):
+    X_tfidf = vectorizer.transform(texts)
+    features = np.array([get_text_features(text, lexique_dict) for text in texts])
+    X_combined = np.hstack((X_tfidf.toarray(), features))
+    return X_combined
+
+# Fonction pour prédire le niveau CECRL d'un nouveau texte
+def predict_cefr_level(text):
+    text_combined = transform_text_features([text], vectorizer, get_text_features, lexique)
+    prediction = model.predict(text_combined)
+    return prediction[0]
+
+# Endpoint pour prédire le niveau CECRL via une requête POST
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.json
+    text = data.get('text', '')
+    niveau_pred = predict_cefr_level(text)
+    return jsonify({'niveau': niveau_pred})
+
+# Interface utilisateur avec Gradio
+def predict_and_display(text):
+    niveau_pred = predict_cefr_level(text)
+    return f'Le niveau CECRL prédit pour le texte est: {niveau_pred}'
+
+# Créer l'interface Gradio
+iface = gr.Interface(
+    fn=predict_and_display,
+    inputs=gr.Textbox(lines=10, placeholder="Entrez le texte ici..."),
+    outputs="text",
+    title="Prédiction du Niveau CECRL",
+    description="Entrez un texte en français pour prédire son niveau CECRL (A1, A2, B1, B2, C1, C2)."
+)
+
+# Lancer l'interface Gradio dans une fonction de thread séparé
+def launch_gradio():
+    iface.launch(share=True)
+
+if __name__ == "__main__":
+    from threading import Thread
+
+    # Lancer l'interface Gradio dans un thread séparé
+    thread = Thread(target=launch_gradio)
+    thread.start()
+
+    # Lancer l'application Flask
+    app.run(debug=True, use_reloader=False)
 
 
