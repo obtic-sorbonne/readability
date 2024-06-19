@@ -133,13 +133,28 @@ def predict_cefr_level(text):
     prediction = model.predict(text_combined)
     return prediction[0]
 
-# tests
-texte1 = "Rappelons que les devoirs à la maison posent rarement des problèmes aux bons élèves. Mais pour ceux qui ont des difficultés, c’est une tout autre affaire : les devoirs sont donc un révélateur des inégalités. Que dire d’un enfant qui est face à un exercice qu’il n’a pas réussi à faire en classe ? Qu’il va y arriver quand il sera chez lui ? Ça revient à mettre sur ses épaules une pression énorme, d’autant plus que les élèves ont déjà des interrogations et des contrôles à tout-va… Même les petits de maternelle sont évalués ! Quand les enseignants estiment qu’un exercice peut se faire en un quart d’heure, ce ne sera pas le cas pour les élèves qui ont du mal."
-texte2="Bonjour, tu vas bien?"
+model = joblib.load('random_forest_cefr_model.pkl')
+vectorizer = joblib.load('tfidf_vectorizer.pkl')
+get_text_features=joblib.load('get_text_features.pkl')
+
+def transform_text_features(texts, vectorizer, get_text_features, lexique_dict):
+    X_tfidf = vectorizer.transform(texts)
+    features = np.array([get_text_features(text, lexique_dict) for text in texts])
+    X_combined = np.hstack((X_tfidf.toarray(), features))
+    return X_combined
+
+def predict_cefr_level(text):
+    text_combined = transform_text_features([text], vectorizer, get_text_features, lexique)
+    prediction = model.predict(text_combined)
+    return prediction[0]
+
+texte1 = "Bonjour comment vas tu?"
+#"Le service propose une plateforme de contenus interactifs, ludiques et variés pour les élèves du CP à la Terminale"
+#"Bonjour comment vas tu?"
+#"Le réveillon du Nouvel An a toujours été ma journée préférée,” a dit l’Ingénieur, qui était venu se tenir avec eux"
+#"Henriette était une femme petite et frêle, donc même un gardien ivre était une sécurité suffisante"
 
 niveau_pred = predict_cefr_level(texte1)
 print(f'Le niveau CECRL prédit pour le texte est: {niveau_pred}')
-niveau_pred2 = predict_cefr_level(texte2)
-print(f'Le niveau CECRL prédit pour le texte est: {niveau_pred2}')
 
 
