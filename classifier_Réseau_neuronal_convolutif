@@ -11,7 +11,7 @@ from keras.preprocessing.sequence import pad_sequences
 import gensim
 from keras import optimizers
 
-# Configurations
+
 LABEL_MARK = "__label__"
 DENSE_LAYER_SIZE = 200
 FILTER_SIZES = [2,3, 4, 5, 6, 7]
@@ -83,8 +83,7 @@ class PreProcessing:
         self.y_train = labels[:-nb_validation_samples]
         self.x_val = data[-nb_validation_samples:]
         self.y_val = labels[-nb_validation_samples:]
-        
-        # Définir corpus_file pour créer les vecteurs plus tard
+
         self.corpus_file = 'combined_corpus.txt'
         with open(self.corpus_file, 'w', encoding='utf-8') as f:
             for text in texts:
@@ -185,7 +184,6 @@ def predict(text_file, model_file, vectors_file):
     print(predictions)
     return predictions
 
-# Fichiers texte pour chaque niveau CECRL
 text_files = {
     'A1': '/A1.txt',
     'A2': '/A2.txt',
@@ -195,9 +193,9 @@ text_files = {
     'C2': '/C2.txt'
 }
 
-# Entraîner le modèle
+
 train(text_files, 'cefr_model.h5', 'word_vectors.vec')
 
-# Prédire avec un nouveau fichier texte
+
 predictions = predict('/test.txt', 'cefr_model.h5', 'word_vectors.vec')
 
