@@ -1,5 +1,5 @@
 
-!pip install -qqq -U transformers datasets accelerate peft trl bitsandbytes wandb --progress-bar off
+#!pip install -qqq -U transformers datasets accelerate peft trl bitsandbytes wandb --progress-bar off
 
 import gc
 import os
