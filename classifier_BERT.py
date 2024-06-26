@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from transformers import glue_convert_examples_to_features as convert_examples_to_features
 from tqdm import tqdm
 
-# Configuration
+
 BERT_MODEL = 'bert-base-uncased'
 LABEL_LIST = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -136,7 +136,6 @@ if __name__ == '__main__':
     parser.add_argument("--learning_rate", default=4e-3, type=float)
     parser.add_argument('--batch_size', default=4, type=int)
 
-    # Ajouter cette ligne pour ignorer les arguments inconnus
     args, unknown = parser.parse_known_args()
 
     random.seed(args.seed)
