@@ -180,3 +180,136 @@ if __name__ == '__main__':
             print(f'Test Acc: {final_test_acc * 100:.2f}')
 
     print(f'Final Dev Acc: {best_dev_acc * 100:.2f}, Final Test Acc: {final_test_acc * 100:.2f}')
+
+
+'''
+#!pip uninstall torch transformers accelerate
+
+#!pip install transformers
+#!pip install datasets
+#!pip install torch torchvision torchaudio
+
+import json
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
+from datasets import Dataset
+
+# Charger le dataset JSON
+with open("/cecrl_dataset.json", "r", encoding="utf-8") as json_file:
+    dataset = json.load(json_file)
+
+# Convertir le dataset en format compatible avec Hugging Face Datasets
+hf_dataset = Dataset.from_dict({
+    "input_text": [entry["input"] for entry in dataset],
+    "label": [entry["output"] for entry in dataset]
+})
+
+# Mapper les niveaux CECRL à des labels numériques
+label_to_id = {"A1": 0, "A2": 1, "B1": 2, "B2": 3, "C1": 4, "C2": 5}
+hf_dataset = hf_dataset.map(lambda example: {"label": label_to_id[example["label"]]})
+
+# Charger le tokenizer et le modèle pré-entraîné
+model_name = "distilbert-base-uncased"  # Vous pouvez choisir un autre modèle compatible avec votre tâche
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=len(label_to_id))
+
+# Tokenizer les données
+def tokenize_function(examples):
+    return tokenizer(examples["input_text"], padding="max_length", truncation=True)
+
+tokenized_dataset = hf_dataset.map(tokenize_function, batched=True)
+
+# Définir les arguments d'entraînement
+training_args = TrainingArguments(
+    output_dir="./results",
+    evaluation_strategy="epoch",
+    learning_rate=2e-4,
+    per_device_train_batch_size=4,
+    per_device_eval_batch_size=4,
+    num_train_epochs=1,
+    weight_decay=0.05,
+)
+
+# Créer l'objet Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset,
+    eval_dataset=tokenized_dataset,
+    tokenizer=tokenizer,
+)
+
+# Fine-tuner le modèle
+trainer.train()
+
+# Enregistrer le modèle fine-tuné
+model.save_pretrained("./cefr_model")
+tokenizer.save_pretrained("./cefr_model")
+
+print("Fine-tuning completed and model saved!")
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+# Charger le modèle et le tokenizer
+model_path = "./cefr_model"
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModelForSequenceClassification.from_pretrained(model_path)
+
+
+
+import json
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from datasets import Dataset
+from sklearn.metrics import classification_report
+
+# Charger le dataset JSON
+with open("/cecrl_dataset.json", "r", encoding="utf-8") as json_file:
+    dataset = json.load(json_file)
+
+# Convertir le dataset en format compatible avec Hugging Face Datasets
+hf_dataset = Dataset.from_dict({
+    "input_text": [entry["input"] for entry in dataset],
+    "label": [entry["output"] for entry in dataset]
+})
+
+# Mapper les niveaux CECRL à des labels numériques
+label_to_id = {"A1": 0, "A2": 1, "B1": 2, "B2": 3, "C1": 4, "C2": 5}
+hf_dataset = hf_dataset.map(lambda example: {"label": label_to_id[example["label"]]})
+
+# Charger le tokenizer et le modèle pré-entraîné
+model_path = "./cefr_model"
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModelForSequenceClassification.from_pretrained(model_path)
+
+# Tokenizer les données
+def tokenize_function(examples):
+    return tokenizer(examples["input_text"], padding="max_length", truncation=True)
+
+tokenized_dataset = hf_dataset.map(tokenize_function, batched=True)
+
+# Définir les prédictions sur le dataset de test
+def get_predictions(model, tokenized_dataset):
+    input_ids = torch.tensor(tokenized_dataset['input_ids'])
+    attention_mask = torch.tensor(tokenized_dataset['attention_mask'])
+
+    with torch.no_grad():
+        outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+
+    predictions = torch.argmax(outputs.logits, dim=-1)
+    return predictions
+
+# Obtenir les prédictions
+predictions = get_predictions(model, tokenized_dataset)
+
+# Convertir les prédictions en labels
+predicted_labels = [list(label_to_id.keys())[pred] for pred in predictions]
+
+# Calculer le rapport de classification
+true_labels = [list(label_to_id.keys())[label] for label in tokenized_dataset['labels']]
+report = classification_report(true_labels, predicted_labels, target_names=label_to_id.keys())
+
+# Afficher le rapport de classification
+print(report)
+
+
+'''
